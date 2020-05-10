@@ -1,0 +1,115 @@
+<script src="tinytest.js"></script>
+<script>
+
+(function() {
+
+// Create storage object
+var libraryStorage = {};
+
+function librarySystem(libraryName, dependencies, callback) {
+    // If we are storing it
+    if (arguments.length > 1) {
+        libraryStorage[libraryName] = {};
+        // if there are dependencies
+        if (dependencies.length > 0) {
+            // checking dependencies
+            var depsDefined = dependencies.map(e => Boolean(libraryStorage[e])).every(e => e === true);
+            // if all dependencies have already been created
+            if (depsDefined) {
+                var depArgs = dependencies.map(e => libraryStorage[e].output);
+                libraryStorage[libraryName].output = callback(...depArgs);
+            // they haven't been created yet
+            } else {
+                libraryStorage[libraryName].callback = callback;
+                libraryStorage[libraryName].dependencies = dependencies;
+                libraryStorage[libraryName].getDependencies = function () {
+                    return this.dependencies.map(e => libraryStorage[e].output);
+                }
+            }
+        // if there are no dependencies
+        } else {
+            libraryStorage[libraryName].output = callback();
+        }
+    // If we are returning it
+    } else {
+        // if it's already created
+        if (libraryStorage[libraryName].output) {
+            return libraryStorage[libraryName].output;
+        } else {
+            libraryStorage[libraryName].output = libraryStorage[libraryName].callback(...libraryStorage[libraryName].getDependencies());
+            return libraryStorage[libraryName].output;
+        }
+    }
+}
+
+window.librarySystem = librarySystem;
+
+})()
+
+
+tests({
+  'If only provided a library name it should return it.': function () {
+    librarySystem('name', [], function () {
+		  return 'Nate';
+    });
+
+    var result = librarySystem('name');
+
+    eq('Nate', result);
+  },
+  'The new way should work': function() {
+    librarySystem('workBlurb', ['name', 'company'], function(name, company) {
+        return name + ' works at ' + company;
+    });
+
+    librarySystem('name', [], function() {
+        return 'Gordon';
+    });
+
+    librarySystem('company', [], function() {
+        return 'Watch and Code';
+    });
+
+    eq(librarySystem('workBlurb'), 'Gordon works at Watch and Code');
+  },
+  'The old way should still work': function() {
+    librarySystem('name', [], function() {
+        return 'Gordon';
+    });
+
+    librarySystem('company', [], function() {
+        return 'Watch and Code';
+    });
+
+    librarySystem('workBlurb', ['name', 'company'], function(name, company) {
+        return name + ' works at ' + company;
+    });
+
+    eq(librarySystem('workBlurb'), 'Gordon works at Watch and Code');
+  },
+  'workBlurb callback should run only once': function() {
+    var count = 0;
+
+    librarySystem('workBlurb', ['name', 'company'], function(name, company) {
+        count++
+        return name + ' works at ' + company;
+    });
+
+    librarySystem('name', [], function() {
+        return 'Gordon';
+    });
+
+    librarySystem('company', [], function() {
+        return 'Watch and Code';
+    });
+
+    librarySystem('workBlurb');
+    librarySystem('workBlurb');
+    librarySystem('workBlurb');
+    librarySystem('workBlurb');
+    librarySystem('workBlurb');
+
+    eq(count, 1);
+  }
+});
+</script>
